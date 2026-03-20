@@ -1,14 +1,13 @@
 from pyflink.datastream import StreamExecutionEnvironment
 from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 
-def create_events_aggregated_sink(t_env):
+def create_events_aggregated_sink(t_env: StreamTableEnvironment) -> str:
     table_name = 'green_trips_aggregated'
     sink_ddl = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        CREATE TABLE {table_name} (
             window_start TIMESTAMP(3),
             PULocationID INT,
             num_trips BIGINT,
-            total_revenue DOUBLE,
             PRIMARY KEY (window_start, PULocationID) NOT ENFORCED
         ) WITH (
             'connector' = 'jdbc',
@@ -22,7 +21,7 @@ def create_events_aggregated_sink(t_env):
     t_env.execute_sql(sink_ddl)
     return table_name
 
-def create_events_source_kafka(t_env):
+def create_events_source_kafka(t_env: StreamTableEnvironment) -> str:
     table_name = "green_trips"
     source_ddl = f"""
         CREATE TABLE {table_name} (
@@ -30,12 +29,15 @@ def create_events_source_kafka(t_env):
             DOLocationID INT,
             trip_distance DOUBLE,
             total_amount DOUBLE,
-            lpep_pickup_datetime STRING,
+            lpep_pickup_datetime VARCHAR,
+            lpep_dropoff_datetime VARCHAR,
+            passenger_count INT,
+            tip_amount DOUBLE,
             event_timestamp AS TO_TIMESTAMP(lpep_pickup_datetime, 'yyyy-MM-dd HH:mm:ss'),
             WATERMARK FOR event_timestamp AS event_timestamp - INTERVAL '5' SECOND
         ) WITH (
             'connector' = 'kafka',
-            'properties.bootstrap.servers' = 'redpanda:9092',
+            'properties.bootstrap.servers' = 'redpanda:29092',
             'topic' = 'green-trips',
             'scan.startup.mode' = 'earliest-offset',
             'properties.auto.offset.reset' = 'earliest',
@@ -65,14 +67,13 @@ def log_aggregation():
         t_env.execute_sql(f"""
             INSERT INTO {aggregated_table}
             SELECT
-                TUMBLE_START(event_timestamp, INTERVAL '5' MINUTE) AS window_start,
+                window_start,
                 PULocationID,
-                COUNT(*) AS num_trips,
-                SUM(total_amount) AS total_revenue
-            FROM {source_table}
-            GROUP BY
-                PULocationID,
-                TUMBLE(event_timestamp, INTERVAL '5' MINUTE)
+                COUNT(*) AS num_trips
+            FROM TABLE(
+                TUMBLE(TABLE {source_table}, DESCRIPTOR(event_timestamp), INTERVAL '5' MINUTES)
+            )
+            GROUP BY window_start, PULocationID
         """).wait()
 
     except Exception as e:

@@ -29,6 +29,8 @@ df = df.fillna({
     "tip_amount": 0.0,
     "total_amount": 0.0
 })
+df['lpep_pickup_datetime'] = pd.to_datetime(df['lpep_pickup_datetime'])
+df['lpep_dropoff_datetime'] = pd.to_datetime(df['lpep_dropoff_datetime'])
 
 def ride_serializer(ride):
     ride_dict = dataclasses.asdict(ride)

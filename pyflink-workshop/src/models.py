@@ -16,8 +16,8 @@ class Ride:
 
 def ride_from_row(row):
     return Ride(
-        lpep_pickup_datetime=row['lpep_pickup_datetime'].isoformat(),
-        lpep_dropoff_datetime=row['lpep_dropoff_datetime'].isoformat(),
+        lpep_pickup_datetime=row['lpep_pickup_datetime'].strftime('%Y-%m-%d %H:%M:%S'),
+        lpep_dropoff_datetime=row['lpep_dropoff_datetime'].strftime('%Y-%m-%d %H:%M:%S'),
         PULocationID=int(row['PULocationID']),
         DOLocationID=int(row['DOLocationID']),
         passenger_count=int(row['passenger_count']),
